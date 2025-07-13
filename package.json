@@ -1,0 +1,33 @@
+{
+    "name": "retell-webhook-microservice",
+    "version": "1.0.0",
+    "description": "Kubernetes microservice for handling and forwarding Retell webhooks",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "dev": "dotenv -e .env nodemon --watch src --exec ts-node src/index.ts",
+        "lint": "eslint src --ext .ts",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "retell",
+        "webhook",
+        "microservice",
+        "kubernetes"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^1.6.0",
+        "express": "^4.18.2",
+        "retell-sdk": "^2.0.0"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^20.19.7",
+        "dotenv-cli": "^8.0.0",
+        "ts-node": "^10.9.0",
+        "typescript": "^5.3.0"
+    }
+}

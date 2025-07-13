@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: retell-webhook-service
+  namespace: retell-webhooks
+  labels:
+    app: retell-webhook-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: retell-webhook-service
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: retell-webhook-ingress
+  namespace: retell-webhooks
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+    - hosts:
+        - your-domain.com
+      secretName: retell-webhook-tls
+  rules:
+    - host: your-domain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: retell-webhook-service
+                port:
+                  number: 80
