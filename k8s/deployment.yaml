@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: retell-webhook-service
-  namespace: retell-webhooks
+  # namespace: retell-webhooks
   labels:
     app: retell-webhook-service
 spec:
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: retell-webhook
-          image: retell-webhook-microservice:latest
+          image: ivansscrobot/ardent-ms-webhooks:0.1
           ports:
             - containerPort: 3000
               name: http

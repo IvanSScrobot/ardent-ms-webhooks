@@ -16,7 +16,7 @@ const SITE_NAME = process.env.SITE_NAME || 'localhost';
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
 const ONLY_WHITELISTED_SOURCES = process.env.ONLY_WHITELISTED_SOURCES === 'true' || process.env.ONLY_WHITELISTED_SOURCES === 'True';
 
-const shouldLogSignatures = process.env.LOG_SIGNATURES === 'true' || process.env.LOG_SIGNATURES === 'True';
+// const shouldLogSignatures = process.env.LOG_SIGNATURES === 'true' || process.env.LOG_SIGNATURES === 'True';
 
 // Validate required environment variables
 if (!RETELL_API_KEY) {
@@ -71,9 +71,9 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Main webhook endpoint
-app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
+app.post(`/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
     const requestId = Math.random().toString(36).substring(7);
-    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    const clientIP = req.headers['x-original-forwarded-for]  || 'unknown';
 
     logger.info(`Incoming webhook request`, {
         requestId,
@@ -109,13 +109,11 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             .update(payload)
             .digest('hex');
 
-        if (shouldLogSignatures) {
-            logger.info(`Signature validation`, {
-                requestId,
-                signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
-                expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
-            });
-        }
+        logger.info(`Signature validation`, {
+            requestId,
+            signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
+            expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
+        });
 
         const isValidSignature = signature === expectedSignature;
 
