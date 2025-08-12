@@ -17,7 +17,7 @@ spec:
     - host: ardnt.io
       http:
         paths:
-          - path: /
+          - path: /webhook
             pathType: Prefix
             backend:
               service:

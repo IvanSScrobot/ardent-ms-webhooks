@@ -7,7 +7,7 @@ const express_1 = __importDefault(require("express"));
 const axios_1 = __importDefault(require("axios"));
 const crypto_1 = __importDefault(require("crypto"));
 const app = (0, express_1.default)();
-app.use(express_1.default.json());
+app.use(express_1.default.json({ limit: '50mb' }));
 // Environment variables
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
 const WEBHOOK_HASH = process.env.WEBHOOK_HASH;
@@ -17,7 +17,7 @@ const SITE_NAME = process.env.SITE_NAME || 'localhost';
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
 const ONLY_WHITELISTED_SOURCES = process.env.ONLY_WHITELISTED_SOURCES === 'true' || process.env.ONLY_WHITELISTED_SOURCES === 'True';
-const shouldLogSignatures = process.env.LOG_SIGNATURES === 'true' || process.env.LOG_SIGNATURES === 'True';
+// const shouldLogSignatures = process.env.LOG_SIGNATURES === 'true' || process.env.LOG_SIGNATURES === 'True';
 // Validate required environment variables
 if (!RETELL_API_KEY) {
     console.error('RETELL_API_KEY environment variable is required');
@@ -63,9 +63,9 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 // Main webhook endpoint
-app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
+app.post(`/${WEBHOOK_HASH}`, async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
-    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    const clientIP = req.headers['x-original-forwarded-for'] || 'unknown';
     logger.info(`Incoming webhook request`, {
         requestId,
         clientIP,
@@ -95,13 +95,11 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
             .createHmac('sha256', RETELL_API_KEY)
             .update(payload)
             .digest('hex');
-        if (shouldLogSignatures) {
-            logger.info(`Signature validation`, {
-                requestId,
-                signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
-                expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
-            });
-        }
+        logger.info(`Signature validation`, {
+            requestId,
+            signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
+            expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
+        });
         const isValidSignature = signature === expectedSignature;
         if (!isValidSignature) {
             logger.error(`Invalid Retell signature`, {

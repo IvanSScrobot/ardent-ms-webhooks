@@ -3,7 +3,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // Environment variables
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
@@ -71,9 +71,9 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Main webhook endpoint
-app.post(`/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
+app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
     const requestId = Math.random().toString(36).substring(7);
-    const clientIP = req.headers['x-original-forwarded-for]  || 'unknown';
+    const clientIP = req.headers['x-original-forwarded-for'] as string || 'unknown';
 
     logger.info(`Incoming webhook request`, {
         requestId,
@@ -113,6 +113,8 @@ app.post(`/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             requestId,
             signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
             expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
+            , signature_full: signature + '...', // todo: Remove this in production
+            expectedSignature_full: expectedSignature + '...'  // todo: Remove this in production
         });
 
         const isValidSignature = signature === expectedSignature;
@@ -200,7 +202,7 @@ app.post('/webhook/*', (req: Request, res: Response) => {
     logger.warn(`Invalid webhook path accessed`, {
         requestId,
         path: req.path,
-        clientIP: req.ip || req.connection.remoteAddress || 'unknown'
+        clientIP: req.headers['x-original-forwarded-for'] as string || 'unknown'
     });
     res.status(404).json({ error: 'Invalid path' });
 });
