@@ -14,6 +14,7 @@ const WEBHOOK_HASH = process.env.WEBHOOK_HASH;
 const FORWARD_ENDPOINT = process.env.FORWARD_ENDPOINT;
 const PORT = process.env.PORT || 3000;
 const SITE_NAME = process.env.SITE_NAME || 'localhost';
+const TARGET_ENDPOINT_TIMEOUT = parseInt(process.env.TARGET_ENDPOINT_TIMEOUT || '600000'); // Default 10 minutes
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
 const ONLY_WHITELISTED_SOURCES = process.env.ONLY_WHITELISTED_SOURCES === 'true' || process.env.ONLY_WHITELISTED_SOURCES === 'True';
@@ -107,43 +108,44 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
             eventType: event,
             callId: call?.call_id || 'unknown'
         });
-        // Forward the request to the target endpoint
-        try {
-            logger.info(`Forwarding request to target endpoint`, {
-                requestId,
-                targetEndpoint: FORWARD_ENDPOINT
-            });
-            const forwardResponse = await axios_1.default.post(FORWARD_ENDPOINT, req.body, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Original-Signature': signature,
-                    'X-Request-ID': requestId,
-                    // Forward original headers except host and content-length
-                    ...Object.fromEntries(Object.entries(req.headers).filter(([key]) => !['host', 'content-length', 'connection'].includes(key.toLowerCase())))
-                },
-                timeout: 30000 // 30 second timeout
-            });
-            logger.info(`Successfully forwarded request`, {
-                requestId,
-                targetStatus: forwardResponse.status,
-                targetStatusText: forwardResponse.statusText
-            });
-            // Acknowledge the receipt of the event
-            res.status(204).send();
-            logger.info(`Webhook processing completed successfully`, { requestId });
-        }
-        catch (forwardError) {
-            logger.error(`Failed to forward request`, {
-                requestId,
-                error: forwardError.message,
-                targetEndpoint: FORWARD_ENDPOINT,
-                status: forwardError.response?.status,
-                statusText: forwardError.response?.statusText
-            });
-            // Still acknowledge the webhook to prevent retries
-            res.status(204).send();
-            logger.warn(`Acknowledged webhook despite forward failure`, { requestId });
-        }
+        // Acknowledge the receipt of the event immediately after successful verification
+        res.status(204).send();
+        logger.info(`Acknowledged webhook to Retell`, { requestId });
+        // Forward the request to the target endpoint asynchronously
+        setImmediate(async () => {
+            try {
+                logger.info(`Forwarding request to target endpoint`, {
+                    requestId,
+                    targetEndpoint: FORWARD_ENDPOINT,
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
+                const forwardResponse = await axios_1.default.post(FORWARD_ENDPOINT, req.body, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Original-Signature': signature,
+                        'X-Request-ID': requestId,
+                        // Forward original headers except host and content-length
+                        ...Object.fromEntries(Object.entries(req.headers).filter(([key]) => !['host', 'content-length', 'connection'].includes(key.toLowerCase())))
+                    },
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
+                logger.info(`Successfully forwarded request`, {
+                    requestId,
+                    targetStatus: forwardResponse.status,
+                    targetStatusText: forwardResponse.statusText
+                });
+            }
+            catch (forwardError) {
+                logger.error(`Failed to forward request`, {
+                    requestId,
+                    error: forwardError.message,
+                    targetEndpoint: FORWARD_ENDPOINT,
+                    status: forwardError.response?.status,
+                    statusText: forwardError.response?.statusText,
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
+            }
+        });
     }
     catch (error) {
         logger.error(`Webhook processing failed`, {
@@ -171,6 +173,7 @@ app.listen(PORT, () => {
         siteName: SITE_NAME,
         webhookPath: `/webhook/${WEBHOOK_HASH}`,
         forwardEndpoint: FORWARD_ENDPOINT,
+        targetEndpointTimeout: `${TARGET_ENDPOINT_TIMEOUT}ms (${TARGET_ENDPOINT_TIMEOUT / 60000} minutes)`,
         nodeEnv: process.env.NODE_ENV || 'development',
         ipAllowlistEnabled: ONLY_WHITELISTED_SOURCES,
         allowedIPsCount: RETELL_ALLOWED_IPS.length,
