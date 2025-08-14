@@ -5,8 +5,8 @@ import { RetellClient } from 'retell-sdk';
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
-// Environment variables
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
+const DISABLE_RETELL_SIGNATURE_VERIFICATION = process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'true' || process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'True';
 const WEBHOOK_HASH = process.env.WEBHOOK_HASH;
 const FORWARD_ENDPOINT = process.env.FORWARD_ENDPOINT;
 const PORT = process.env.PORT || 3000;
@@ -103,24 +103,31 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Missing x-retell-signature header' });
         }
 
-        // Verify Retell signature using official SDK
-        const retellClient = new RetellClient();
-        const isValidSignature = retellClient.verify(
-            JSON.stringify(req.body),
-            RETELL_API_KEY!,
-            signature
-        );
-
-        if (!isValidSignature) {
-            logger.error(`Invalid Retell signature`, {
-                requestId,
-                signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
-            });
-            return res.status(401).json({ error: 'Invalid signature' });
+        if (DISABLE_RETELL_SIGNATURE_VERIFICATION) {
+            logger.info(`Signature verification is disabled`, { requestId });
+            // If signature verification is disabled, proceed without validation
+            // return res.status(204).send();
         }
+        else {
+            // Verify Retell signature using official SDK
+            const retellClient = new RetellClient();
+            const isValidSignature = retellClient.verify(
+                JSON.stringify(req.body),
+                RETELL_API_KEY!,
+                signature
+            );
 
-        logger.info(`Retell signature validation successful`, { requestId });
+            if (!isValidSignature) {
+                logger.error(`Invalid Retell signature`, {
+                    requestId,
+                    signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
+                });
+                return res.status(401).json({ error: 'Invalid signature' });
+            }
 
+            logger.info(`Retell signature validation successful`, { requestId });
+
+        }
         // Extract event data
         const { event, call } = req.body;
         logger.info(`Processing webhook event`, {
