@@ -5,12 +5,13 @@ import { RetellClient } from 'retell-sdk';
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
-// Environment variables
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
+const DISABLE_RETELL_SIGNATURE_VERIFICATION = process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'true' || process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'True';
 const WEBHOOK_HASH = process.env.WEBHOOK_HASH;
 const FORWARD_ENDPOINT = process.env.FORWARD_ENDPOINT;
 const PORT = process.env.PORT || 3000;
 const SITE_NAME = process.env.SITE_NAME || 'localhost';
+const TARGET_ENDPOINT_TIMEOUT = parseInt(process.env.TARGET_ENDPOINT_TIMEOUT || '600000'); // Default 10 minutes
 
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
@@ -102,24 +103,31 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Missing x-retell-signature header' });
         }
 
-        // Verify Retell signature using official SDK
-        const retellClient = new RetellClient();
-        const isValidSignature = retellClient.verify(
-            JSON.stringify(req.body),
-            RETELL_API_KEY!,
-            signature
-        );
-
-        if (!isValidSignature) {
-            logger.error(`Invalid Retell signature`, {
-                requestId,
-                signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
-            });
-            return res.status(401).json({ error: 'Invalid signature' });
+        if (DISABLE_RETELL_SIGNATURE_VERIFICATION) {
+            logger.info(`Signature verification is disabled`, { requestId });
+            // If signature verification is disabled, proceed without validation
+            // return res.status(204).send();
         }
+        else {
+            // Verify Retell signature using official SDK
+            const retellClient = new RetellClient();
+            const isValidSignature = retellClient.verify(
+                JSON.stringify(req.body),
+                RETELL_API_KEY!,
+                signature
+            );
 
-        logger.info(`Retell signature validation successful`, { requestId });
+            if (!isValidSignature) {
+                logger.error(`Invalid Retell signature`, {
+                    requestId,
+                    signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
+                });
+                return res.status(401).json({ error: 'Invalid signature' });
+            }
 
+            logger.info(`Retell signature validation successful`, { requestId });
+
+        }
         // Extract event data
         const { event, call } = req.body;
         logger.info(`Processing webhook event`, {
@@ -128,53 +136,51 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             callId: call?.call_id || 'unknown'
         });
 
-        // Forward the request to the target endpoint
-        try {
-            logger.info(`Forwarding request to target endpoint`, {
-                requestId,
-                targetEndpoint: FORWARD_ENDPOINT
-            });
+        // Acknowledge the receipt of the event immediately after successful verification
+        res.status(204).send();
+        logger.info(`Acknowledged webhook to Retell`, { requestId });
 
-            const forwardResponse = await axios.post(FORWARD_ENDPOINT!, req.body, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Original-Signature': signature,
-                    'X-Request-ID': requestId,
-                    // Forward original headers except host and content-length
-                    ...Object.fromEntries(
-                        Object.entries(req.headers).filter(([key]) =>
-                            !['host', 'content-length', 'connection'].includes(key.toLowerCase())
+        // Forward the request to the target endpoint asynchronously
+        setImmediate(async () => {
+            try {
+                logger.info(`Forwarding request to target endpoint`, {
+                    requestId,
+                    targetEndpoint: FORWARD_ENDPOINT,
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
+
+                const forwardResponse = await axios.post(FORWARD_ENDPOINT!, req.body, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Original-Signature': signature,
+                        'X-Request-ID': requestId,
+                        // Forward original headers except host and content-length
+                        ...Object.fromEntries(
+                            Object.entries(req.headers).filter(([key]) =>
+                                !['host', 'content-length', 'connection'].includes(key.toLowerCase())
+                            )
                         )
-                    )
-                },
-                timeout: 30000 // 30 second timeout
-            });
+                    },
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
 
-            logger.info(`Successfully forwarded request`, {
-                requestId,
-                targetStatus: forwardResponse.status,
-                targetStatusText: forwardResponse.statusText
-            });
+                logger.info(`Successfully forwarded request`, {
+                    requestId,
+                    targetStatus: forwardResponse.status,
+                    targetStatusText: forwardResponse.statusText
+                });
 
-            // Acknowledge the receipt of the event
-            res.status(204).send();
-
-            logger.info(`Webhook processing completed successfully`, { requestId });
-
-        } catch (forwardError: any) {
-            logger.error(`Failed to forward request`, {
-                requestId,
-                error: forwardError.message,
-                targetEndpoint: FORWARD_ENDPOINT,
-                status: forwardError.response?.status,
-                statusText: forwardError.response?.statusText
-            });
-
-            // Still acknowledge the webhook to prevent retries
-            res.status(204).send();
-
-            logger.warn(`Acknowledged webhook despite forward failure`, { requestId });
-        }
+            } catch (forwardError: any) {
+                logger.error(`Failed to forward request`, {
+                    requestId,
+                    error: forwardError.message,
+                    targetEndpoint: FORWARD_ENDPOINT,
+                    status: forwardError.response?.status,
+                    statusText: forwardError.response?.statusText,
+                    timeout: TARGET_ENDPOINT_TIMEOUT
+                });
+            }
+        });
 
     } catch (error: any) {
         logger.error(`Webhook processing failed`, {
@@ -205,6 +211,7 @@ app.listen(PORT, () => {
         siteName: SITE_NAME,
         webhookPath: `/webhook/${WEBHOOK_HASH}`,
         forwardEndpoint: FORWARD_ENDPOINT,
+        targetEndpointTimeout: `${TARGET_ENDPOINT_TIMEOUT}ms (${TARGET_ENDPOINT_TIMEOUT / 60000} minutes)`,
         nodeEnv: process.env.NODE_ENV || 'development',
         ipAllowlistEnabled: ONLY_WHITELISTED_SOURCES,
         allowedIPsCount: RETELL_ALLOWED_IPS.length,

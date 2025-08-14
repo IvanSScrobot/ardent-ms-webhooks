@@ -14,3 +14,6 @@ data:
   # Comma-separated list of allowed Retell IP addresses
   # Example: "52.14.14.14,52.15.15.15,34.210.210.210"
   RETELL_ALLOWED_IPS: "100.20.5.228"
+  # Target endpoint timeout in milliseconds (default: 600000 = 10 minutes)
+  TARGET_ENDPOINT_TIMEOUT: "600000"
+  DISABLE_RETELL_SIGNATURE_VERIFICATION: "false"
