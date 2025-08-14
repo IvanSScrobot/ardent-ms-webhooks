@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import axios from 'axios';
-import crypto from 'crypto';
+import { RetellClient } from 'retell-sdk';
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -102,22 +102,13 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Missing x-retell-signature header' });
         }
 
-        // Verify Retell signature using HMAC-SHA256
-        const payload = JSON.stringify(req.body);
-        const expectedSignature = crypto
-            .createHmac('sha256', RETELL_API_KEY!)
-            .update(payload)
-            .digest('hex');
-
-        logger.info(`Signature validation`, {
-            requestId,
-            signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
-            expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
-            , signature_full: signature + '...', // todo: Remove this in production
-            expectedSignature_full: expectedSignature + '...'  // todo: Remove this in production
-        });
-
-        const isValidSignature = signature === expectedSignature;
+        // Verify Retell signature using official SDK
+        const retellClient = new RetellClient();
+        const isValidSignature = retellClient.verify(
+            JSON.stringify(req.body),
+            RETELL_API_KEY!,
+            signature
+        );
 
         if (!isValidSignature) {
             logger.error(`Invalid Retell signature`, {

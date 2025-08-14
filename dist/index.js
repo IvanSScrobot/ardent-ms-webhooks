@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const axios_1 = __importDefault(require("axios"));
-const crypto_1 = __importDefault(require("crypto"));
+const retell_sdk_1 = require("retell-sdk");
 const app = (0, express_1.default)();
 app.use(express_1.default.json({ limit: '50mb' }));
 // Environment variables
@@ -63,7 +63,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 // Main webhook endpoint
-app.post(`/${WEBHOOK_HASH}`, async (req, res) => {
+app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
     const clientIP = req.headers['x-original-forwarded-for'] || 'unknown';
     logger.info(`Incoming webhook request`, {
@@ -89,18 +89,9 @@ app.post(`/${WEBHOOK_HASH}`, async (req, res) => {
             logger.warn(`Missing x-retell-signature header`, { requestId });
             return res.status(400).json({ error: 'Missing x-retell-signature header' });
         }
-        // Verify Retell signature using HMAC-SHA256
-        const payload = JSON.stringify(req.body);
-        const expectedSignature = crypto_1.default
-            .createHmac('sha256', RETELL_API_KEY)
-            .update(payload)
-            .digest('hex');
-        logger.info(`Signature validation`, {
-            requestId,
-            signature: signature.substring(0, 15) + '...', // Log partial signature for debugging
-            expectedSignature: expectedSignature.substring(0, 15) + '...' // Log partial expected signature
-        });
-        const isValidSignature = signature === expectedSignature;
+        // Verify Retell signature using official SDK
+        const retellClient = new retell_sdk_1.RetellClient();
+        const isValidSignature = retellClient.verify(JSON.stringify(req.body), RETELL_API_KEY, signature);
         if (!isValidSignature) {
             logger.error(`Invalid Retell signature`, {
                 requestId,
@@ -169,7 +160,7 @@ app.post('/webhook/*', (req, res) => {
     logger.warn(`Invalid webhook path accessed`, {
         requestId,
         path: req.path,
-        clientIP: req.ip || req.connection.remoteAddress || 'unknown'
+        clientIP: req.headers['x-original-forwarded-for'] || 'unknown'
     });
     res.status(404).json({ error: 'Invalid path' });
 });
