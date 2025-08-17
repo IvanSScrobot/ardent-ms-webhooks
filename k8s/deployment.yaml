@@ -62,6 +62,11 @@ spec:
                 configMapKeyRef:
                   name: retell-webhook-config
                   key: RETELL_ALLOWED_IPS
+            - name: DISABLE_RETELL_SIGNATURE_VERIFICATION
+              valueFrom:
+                configMapKeyRef:
+                  name: retell-webhook-config
+                  key: DISABLE_RETELL_SIGNATURE_VERIFICATION
           resources:
             requests:
               memory: "128Mi"
