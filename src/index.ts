@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { RetellClient } from 'retell-sdk';
+import { transcode } from 'buffer';
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -71,6 +72,47 @@ app.get('/health', (req: Request, res: Response) => {
     res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
+/**
+ * Extracts relevant data from the webhook body for processing.
+ * @param {Object} body - The webhook request body.
+ * @returns {Object} Extracted data including transcript, dynamic variables, survey ID, call ID, and metadata.
+ */
+function extractWebhookData(body) {
+    logger.info('Extracting webhook data');
+
+    const { call } = body;
+
+    const extractedData = {
+        transcript: call.transcript,
+        dynamicVariables: call.retell_llm_dynamic_variables || {},
+        surveyId: call.metadata.survey_id,
+        callId: call.call_id,
+        metadata: {
+            event: body.event,
+            callType: call.call_type,
+            direction: call.direction,
+            fromNumber: call.from_number,
+            toNumber: call.to_number,
+            startTimestamp: call.start_timestamp,
+            endTimestamp: call.end_timestamp,
+            disconnectionReason: call.disconnection_reason
+        }
+    };
+
+    logger.info('Webhook data extracted successfully before sending to Retell Processor', {
+        surveyId: extractedData.surveyId,
+        callId: extractedData.callId,
+        transcriptLength: extractedData.transcript.length,
+        transcript: extractedData.transcript, //substring(0, 100) + '...', // Log first 100 chars for brevity
+        dynamicVariableKeys: Object.keys(extractedData.dynamicVariables),
+        event: extractedData.metadata.event,
+        callType: extractedData.metadata.callType,
+        direction: extractedData.metadata.direction
+    });
+
+    return extractedData;
+}
+
 // Main webhook endpoint
 app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
     const requestId = Math.random().toString(36).substring(7);
@@ -135,6 +177,7 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
             eventType: event,
             callId: call?.call_id || 'unknown'
         });
+        const { transcript, callId } = extractWebhookData(req.body);
 
         // Acknowledge the receipt of the event immediately after successful verification
         res.status(204).send();
