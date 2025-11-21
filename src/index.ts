@@ -13,6 +13,13 @@ const FORWARD_ENDPOINT = process.env.FORWARD_ENDPOINT;
 const PORT = process.env.PORT || 3000;
 const SITE_NAME = process.env.SITE_NAME || 'localhost';
 const TARGET_ENDPOINT_TIMEOUT = parseInt(process.env.TARGET_ENDPOINT_TIMEOUT || '600000'); // Default 10 minutes
+const LOG_FULL_WEBHOOK_REQUESTS = (() => {
+    const value = process.env.LOG_FULL_WEBHOOK_REQUESTS;
+    if (value === undefined) {
+        return true; // Default to detailed logging when unset
+    }
+    return value === 'true' || value === 'True';
+})();
 
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
@@ -52,6 +59,22 @@ const logger = {
     }
 };
 
+const logDetailedIncomingRequest = (req: Request, requestId: string) => {
+    if (!LOG_FULL_WEBHOOK_REQUESTS) {
+        return;
+    }
+
+    logger.info('Detailed incoming webhook request (pre-validation)', {
+        requestId,
+        method: req.method,
+        path: req.path,
+        url: req.originalUrl,
+        query: req.query,
+        headers: req.headers,
+        body: req.body
+    });
+};
+
 // IP allowlist checking function
 const isIPAllowed = (clientIP: string): boolean => {
     if (!ONLY_WHITELISTED_SOURCES) {
@@ -77,7 +100,7 @@ app.get('/health', (req: Request, res: Response) => {
  * @param {Object} body - The webhook request body.
  * @returns {Object} Extracted data including transcript, dynamic variables, survey ID, call ID, and metadata.
  */
-function extractWebhookData(body) {
+function extractWebhookData(body: any) {
     logger.info('Extracting webhook data');
 
     const { call } = body;
@@ -117,6 +140,8 @@ function extractWebhookData(body) {
 app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
     const requestId = Math.random().toString(36).substring(7);
     const clientIP = req.headers['x-original-forwarded-for'] as string || 'unknown';
+
+    logDetailedIncomingRequest(req, requestId);
 
     logger.info(`Incoming webhook request`, {
         requestId,

@@ -17,3 +17,4 @@ data:
   # Target endpoint timeout in milliseconds (default: 600000 = 10 minutes)
   TARGET_ENDPOINT_TIMEOUT: "600000"
   DISABLE_RETELL_SIGNATURE_VERIFICATION: "False"
+  LOG_FULL_WEBHOOK_REQUESTS: "true"

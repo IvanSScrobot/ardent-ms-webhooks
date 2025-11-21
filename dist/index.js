@@ -8,13 +8,20 @@ const axios_1 = __importDefault(require("axios"));
 const retell_sdk_1 = require("retell-sdk");
 const app = (0, express_1.default)();
 app.use(express_1.default.json({ limit: '50mb' }));
-// Environment variables
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
+const DISABLE_RETELL_SIGNATURE_VERIFICATION = process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'true' || process.env.DISABLE_RETELL_SIGNATURE_VERIFICATION === 'True';
 const WEBHOOK_HASH = process.env.WEBHOOK_HASH;
 const FORWARD_ENDPOINT = process.env.FORWARD_ENDPOINT;
 const PORT = process.env.PORT || 3000;
 const SITE_NAME = process.env.SITE_NAME || 'localhost';
 const TARGET_ENDPOINT_TIMEOUT = parseInt(process.env.TARGET_ENDPOINT_TIMEOUT || '600000'); // Default 10 minutes
+const LOG_FULL_WEBHOOK_REQUESTS = (() => {
+    const value = process.env.LOG_FULL_WEBHOOK_REQUESTS;
+    if (value === undefined) {
+        return true; // Default to detailed logging when unset
+    }
+    return value === 'true' || value === 'True';
+})();
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
 const ONLY_WHITELISTED_SOURCES = process.env.ONLY_WHITELISTED_SOURCES === 'true' || process.env.ONLY_WHITELISTED_SOURCES === 'True';
@@ -47,6 +54,20 @@ const logger = {
         console.warn(`[${timestamp}] WARN: ${message}`, data ? JSON.stringify(data, null, 2) : '');
     }
 };
+const logDetailedIncomingRequest = (req, requestId) => {
+    if (!LOG_FULL_WEBHOOK_REQUESTS) {
+        return;
+    }
+    logger.info('Detailed incoming webhook request (pre-validation)', {
+        requestId,
+        method: req.method,
+        path: req.path,
+        url: req.originalUrl,
+        query: req.query,
+        headers: req.headers,
+        body: req.body
+    });
+};
 // IP allowlist checking function
 const isIPAllowed = (clientIP) => {
     if (!ONLY_WHITELISTED_SOURCES) {
@@ -63,10 +84,47 @@ app.get('/health', (req, res) => {
     logger.info('Health check requested');
     res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
+/**
+ * Extracts relevant data from the webhook body for processing.
+ * @param {Object} body - The webhook request body.
+ * @returns {Object} Extracted data including transcript, dynamic variables, survey ID, call ID, and metadata.
+ */
+function extractWebhookData(body) {
+    logger.info('Extracting webhook data');
+    const { call } = body;
+    const extractedData = {
+        transcript: call.transcript,
+        dynamicVariables: call.retell_llm_dynamic_variables || {},
+        surveyId: call.metadata.survey_id,
+        callId: call.call_id,
+        metadata: {
+            event: body.event,
+            callType: call.call_type,
+            direction: call.direction,
+            fromNumber: call.from_number,
+            toNumber: call.to_number,
+            startTimestamp: call.start_timestamp,
+            endTimestamp: call.end_timestamp,
+            disconnectionReason: call.disconnection_reason
+        }
+    };
+    logger.info('Webhook data extracted successfully before sending to Retell Processor', {
+        surveyId: extractedData.surveyId,
+        callId: extractedData.callId,
+        transcriptLength: extractedData.transcript.length,
+        transcript: extractedData.transcript, //substring(0, 100) + '...', // Log first 100 chars for brevity
+        dynamicVariableKeys: Object.keys(extractedData.dynamicVariables),
+        event: extractedData.metadata.event,
+        callType: extractedData.metadata.callType,
+        direction: extractedData.metadata.direction
+    });
+    return extractedData;
+}
 // Main webhook endpoint
 app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
     const requestId = Math.random().toString(36).substring(7);
     const clientIP = req.headers['x-original-forwarded-for'] || 'unknown';
+    logDetailedIncomingRequest(req, requestId);
     logger.info(`Incoming webhook request`, {
         requestId,
         clientIP,
@@ -90,17 +148,24 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
             logger.warn(`Missing x-retell-signature header`, { requestId });
             return res.status(400).json({ error: 'Missing x-retell-signature header' });
         }
-        // Verify Retell signature using official SDK
-        const retellClient = new retell_sdk_1.RetellClient();
-        const isValidSignature = retellClient.verify(JSON.stringify(req.body), RETELL_API_KEY, signature);
-        if (!isValidSignature) {
-            logger.error(`Invalid Retell signature`, {
-                requestId,
-                signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
-            });
-            return res.status(401).json({ error: 'Invalid signature' });
+        if (DISABLE_RETELL_SIGNATURE_VERIFICATION) {
+            logger.info(`Signature verification is disabled`, { requestId });
+            // If signature verification is disabled, proceed without validation
+            // return res.status(204).send();
         }
-        logger.info(`Retell signature validation successful`, { requestId });
+        else {
+            // Verify Retell signature using official SDK
+            const retellClient = new retell_sdk_1.RetellClient();
+            const isValidSignature = retellClient.verify(JSON.stringify(req.body), RETELL_API_KEY, signature);
+            if (!isValidSignature) {
+                logger.error(`Invalid Retell signature`, {
+                    requestId,
+                    signature: signature.substring(0, 10) + '...' // Log partial signature for debugging
+                });
+                return res.status(401).json({ error: 'Invalid signature' });
+            }
+            logger.info(`Retell signature validation successful`, { requestId });
+        }
         // Extract event data
         const { event, call } = req.body;
         logger.info(`Processing webhook event`, {
@@ -108,6 +173,7 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req, res) => {
             eventType: event,
             callId: call?.call_id || 'unknown'
         });
+        const { transcript, callId } = extractWebhookData(req.body);
         // Acknowledge the receipt of the event immediately after successful verification
         res.status(204).send();
         logger.info(`Acknowledged webhook to Retell`, { requestId });

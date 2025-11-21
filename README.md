@@ -33,6 +33,7 @@ Optional configuration (via ConfigMap):
 - `NODE_ENV`: Environment (default: development)
 - `ONLY_WHITELISTED_SOURCES`: Enable IP allowlist checking (default: false)
 - `RETELL_ALLOWED_IPS`: Comma-separated list of allowed Retell IP addresses
+- `LOG_FULL_WEBHOOK_REQUESTS`: Set to `"true"` to log the full incoming webhook (method, path, query, headers, body) before validation (default: `"true"` when unset, set to `"false"` to disable)
 
 ## Webhook Endpoint
 
@@ -46,7 +47,7 @@ Where `<webhook_hash>` is read from the `WEBHOOK_HASH` environment variable.
 ## Request Flow
 
 1. **Receive**: Incoming POST request to webhook endpoint
-2. **Log**: Log request details (IP, headers, body size)
+2. **Log**: Log request details (IP, headers, body size). If `LOG_FULL_WEBHOOK_REQUESTS=true`, also log the full request payload before any validation
 3. **IP Check**: If `ONLY_WHITELISTED_SOURCES=true`, verify client IP is in allowlist
 4. **Validate**: Verify `x-retell-signature` header using HMAC-SHA256
 5. **Forward**: If valid, forward request to target endpoint
@@ -189,6 +190,8 @@ All operations are logged with structured data:
   "bodySize": 1024
 }
 ```
+
+Set `LOG_FULL_WEBHOOK_REQUESTS=true` to emit a pre-validation log entry with the full request (method, path, query, headers, body) to aid debugging. It defaults to `"true"` when not provided; set `"false"` to disable in production to avoid noisy logs.
 
 ## Development
 
