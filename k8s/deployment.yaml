@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: retell-webhook
-          image: ivansscrobot/ardent-ms-webhooks:0.1
+          image: ivansscrobot/ardent-ms-webhooks:0.1.10
           ports:
             - containerPort: 3000
               name: http
@@ -72,6 +72,11 @@ spec:
                 configMapKeyRef:
                   name: retell-webhook-config
                   key: LOG_FULL_WEBHOOK_REQUESTS
+            - name: USE_WEBHOOK_DATA_EXTRACTION
+              valueFrom:
+                configMapKeyRef:
+                  name: retell-webhook-config
+                  key: USE_WEBHOOK_DATA_EXTRACTION
           resources:
             requests:
               memory: "128Mi"

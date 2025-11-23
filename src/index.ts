@@ -20,6 +20,13 @@ const LOG_FULL_WEBHOOK_REQUESTS = (() => {
     }
     return value === 'true' || value === 'True';
 })();
+const USE_WEBHOOK_DATA_EXTRACTION = (() => {
+    const value = process.env.USE_WEBHOOK_DATA_EXTRACTION;
+    if (value === undefined) {
+        return true; // Default to enabled when unset
+    }
+    return value === 'true' || value === 'True';
+})();
 
 // IP allowlist configuration
 const RETELL_ALLOWED_IPS = process.env.RETELL_ALLOWED_IPS ? process.env.RETELL_ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
@@ -96,44 +103,50 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 /**
- * Extracts relevant data from the webhook body for processing.
+ * Extracts relevant data from the webhook body and removes large transcript_object array.
  * @param {Object} body - The webhook request body.
- * @returns {Object} Extracted data including transcript, dynamic variables, survey ID, call ID, and metadata.
+ * @returns {Object} Cleaned body without transcript_object.
  */
 function extractWebhookData(body: any) {
-    logger.info('Extracting webhook data');
+    logger.info('Extracting webhook data and removing transcript_object');
 
-    const { call } = body;
+    try {
+        // Create a deep copy of the body to avoid mutating the original
+        const cleanedBody = JSON.parse(JSON.stringify(body));
 
-    const extractedData = {
-        transcript: call.transcript,
-        dynamicVariables: call.retell_llm_dynamic_variables || {},
-        surveyId: call.metadata.survey_id,
-        callId: call.call_id,
-        metadata: {
-            event: body.event,
-            callType: call.call_type,
-            direction: call.direction,
-            fromNumber: call.from_number,
-            toNumber: call.to_number,
-            startTimestamp: call.start_timestamp,
-            endTimestamp: call.end_timestamp,
-            disconnectionReason: call.disconnection_reason
+        // Remove the large transcript_object array if it exists
+        if (cleanedBody?.call?.transcript_object) {
+            const transcriptObjectLength = Array.isArray(cleanedBody.call.transcript_object)
+                ? cleanedBody.call.transcript_object.length
+                : 0;
+            delete cleanedBody.call.transcript_object;
+            logger.info('Removed transcript_object from webhook data', {
+                removedItemsCount: transcriptObjectLength,
+                callId: cleanedBody.call?.call_id || 'unknown'
+            });
+        } else {
+            logger.info('No transcript_object found in webhook data', {
+                hasCall: !!cleanedBody?.call,
+                callId: cleanedBody?.call?.call_id || 'unknown'
+            });
         }
-    };
 
-    logger.info('Webhook data extracted successfully before sending to Retell Processor', {
-        surveyId: extractedData.surveyId,
-        callId: extractedData.callId,
-        transcriptLength: extractedData.transcript.length,
-        transcript: extractedData.transcript, //substring(0, 100) + '...', // Log first 100 chars for brevity
-        dynamicVariableKeys: Object.keys(extractedData.dynamicVariables),
-        event: extractedData.metadata.event,
-        callType: extractedData.metadata.callType,
-        direction: extractedData.metadata.direction
-    });
+        logger.info('Webhook data extracted successfully', {
+            event: cleanedBody?.event || 'unknown',
+            callId: cleanedBody?.call?.call_id || 'unknown',
+            hasTranscript: !!cleanedBody?.call?.transcript,
+            transcriptLength: cleanedBody?.call?.transcript?.length || 0
+        });
 
-    return extractedData;
+        return cleanedBody;
+    } catch (error: any) {
+        logger.error('Error extracting webhook data, returning original body', {
+            error: error.message,
+            stack: error.stack
+        });
+        // Return original body if extraction fails
+        return body;
+    }
 }
 
 // Main webhook endpoint
@@ -200,9 +213,20 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
         logger.info(`Processing webhook event`, {
             requestId,
             eventType: event,
-            callId: call?.call_id || 'unknown'
+            callId: call?.call_id || 'unknown',
+            useDataExtraction: USE_WEBHOOK_DATA_EXTRACTION
         });
-        const { transcript, callId } = extractWebhookData(req.body);
+
+        // Determine which data to forward based on environment variable
+        const dataToForward = USE_WEBHOOK_DATA_EXTRACTION
+            ? extractWebhookData(req.body)
+            : req.body;
+
+        if (USE_WEBHOOK_DATA_EXTRACTION) {
+            logger.info('Using extracted webhook data (transcript_object removed)', { requestId });
+        } else {
+            logger.info('Using original webhook data (no modifications)', { requestId });
+        }
 
         // Acknowledge the receipt of the event immediately after successful verification
         res.status(204).send();
@@ -214,10 +238,11 @@ app.post(`/webhook/${WEBHOOK_HASH}`, async (req: Request, res: Response) => {
                 logger.info(`Forwarding request to target endpoint`, {
                     requestId,
                     targetEndpoint: FORWARD_ENDPOINT,
-                    timeout: TARGET_ENDPOINT_TIMEOUT
+                    timeout: TARGET_ENDPOINT_TIMEOUT,
+                    useDataExtraction: USE_WEBHOOK_DATA_EXTRACTION
                 });
 
-                const forwardResponse = await axios.post(FORWARD_ENDPOINT!, req.body, {
+                const forwardResponse = await axios.post(FORWARD_ENDPOINT!, dataToForward, {
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Original-Signature': signature,

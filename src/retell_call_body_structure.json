@@ -1,0 +1,238 @@
+{
+    "requestId": "jnnsra",
+    "method": "POST",
+    "path": "/webhook/c5999fc8-aff3-405d-aebf-c5c904566a0b",
+    "url": "/webhook/c5999fc8-aff3-405d-aebf-c5c904566a0b",
+    "query": {},
+    "headers": {
+        "host": "ardnt.io",
+        "x-request-id": "4eab8add05a71297ab7bf46151d6a8aa",
+        "x-real-ip": "10.10.10.2",
+        "x-forwarded-for": "10.10.10.2",
+        "x-forwarded-host": "ardnt.io",
+        "x-forwarded-port": "80",
+        "x-forwarded-proto": "http",
+        "x-forwarded-scheme": "http",
+        "x-scheme": "http",
+        "x-original-forwarded-for": "100.20.5.228",
+        "content-length": "9651",
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "accept-encoding": "gzip, br",
+        "user-agent": "axios/1.11.0",
+        "cf-ray": "9a1bbbacfbabfef8-PDX",
+        "x-retell-signature": "v=1763681404948,d=882c21cb081573c6af93cbf90b3dcf8c2143c6f50c2f13389b8096f1cca4b8b7",
+        "cdn-loop": "cloudflare; loops=1",
+        "cf-connecting-ip": "100.20.5.228",
+        "cf-ipcountry": "US",
+        "cf-visitor": "{\"scheme\":\"https\"}"
+    },
+    "body": {
+        "event": "call_analyzed",
+        "call": {
+            "call_id": "call_df6fe0badc68466fb64bc2908b3",
+            "call_type": "phone_call",
+            "agent_id": "agent_826371748c85ca36277cae28c2",
+            "agent_version": 53,
+            "agent_name": "HMH Agent (Repurposed)",
+            "retell_llm_dynamic_variables": {
+                "name": "John Mitchell",
+                "phone_number": "+17786974255",
+                "email": "john@mitchellhomes.com",
+                "service": "residential builder",
+                "budget": "Not defined",
+                "frustration": "Not defined",
+                "inefficiencies": "Not defined",
+                "priority_automation": "Not defined",
+                "important_outcome": "Not defined",
+                "hoursToSave": "Not defined",
+                "automationArea": "Not defined",
+                "growthObstacle": "Not defined",
+                "survey_date": "2025-11-20T23:27:17.229Z",
+                "lead_source": "Website contact form",
+                "phoneNumber": "+17786974255",
+                "businessName": "Mitchell Custom Homes",
+                "businessType": "residential builder",
+                "primary_need": "digital marketing support",
+                "target_market": "High-net-worth families in Vancouver area",
+                "consentToUseAI": "true",
+                "operationalFrustration": "Website not generating quality leads"
+            },
+            "call_status": "ended",
+            "start_timestamp": 1763681381060,
+            "end_timestamp": 1763681403414,
+            "duration_ms": 22354,
+            "transcript": "User: Hello?\nAgent: Hi, this is Alex, an AI voice agent from Hope Media House. May I speak with John Mitchell?\nUser: John speaking.\nUser: by the way, can you please call me later?\nUser: tomorrow.\nAgent: Absolutely, \nUser: I'm really busy right now.\nUser: Yeah. Thank you. Bye bye.\nAgent: Thanks for your \n",
+            "transcript_object": [
+                {
+                    "role": "user",
+                    "content": "Hello?",
+                    "words": [
+                        {
+                            "word": "Hello?",
+                            "start": 1.236,
+                            "end": 1.556
+                        }
+                    ]
+                },
+                {
+                    "role": "agent",
+                    "content": "Hi, this is Alex, an AI voice agent from Hope Media House. May I speak with John Mitchell?",
+                    "words": [
+                        {
+                            "word": "Hi, ",
+                            "start": 3.037,
+                            "end": 3.437
+                        },
+...
+{
+                            "word": "your ",
+                            "start": 21.827,
+                            "end": 22.227
+                        }
+                    ],
+                    "metadata": {
+                        "response_id": 8
+                    }
+                }
+            ],
+            "knowledge_base_retrieved_contents_url": "https://dxc03zgurdly9.cloudfront.net/c885a7d4f0ea800a5b6490310420db98730e186e3f0b43752fb39925820736bd/knowledge_base_retrieved_contents.json",
+            "recording_url": "https://dxc03zgurdly9.cloudfront.net/c885a7d4f0ea800a5b6490310420db98730e186e3f0b43752fb39925820736bd/recording.wav",
+            "recording_multi_channel_url": "https://dxc03zgurdly9.cloudfront.net/c885a7d4f0ea800a5b6490310420db98730e186e3f0b43752fb39925820736bd/recording_multichannel.wav",
+            "public_log_url": "https://dxc03zgurdly9.cloudfront.net/c885a7d4f0ea800a5b6490310420db98730e186e3f0b43752fb39925820736bd/public.log",
+            "disconnection_reason": "user_hangup",
+            "latency": {
+                "llm": {
+                    "p50": 1067.5,
+                    "p90": 1290.7,
+                    "p95": 1317.85,
+                    "p99": 1339.57,
+                    "min": 821,
+                    "max": 1345,
+                    "num": 4,
+                    "values": [
+                        971,
+                        1345,
+                        821,
+                        1164
+                    ]
+                },
+                "e2e": {
+                    "p50": 1534.99951171875,
+                    "p90": 1597.39970703125,
+                    "p95": 1599.199853515625,
+                    "p99": 1600.639970703125,
+                    "min": 1293,
+                    "max": 1601,
+                    "num": 4,
+                    "values": [
+                        1481,
+                        1588.9990234375,
+                        1293,
+                        1601
+                    ]
+                },
+                "tts": {
+                    "p50": 189.5,
+                    "p90": 201.9,
+                    "p95": 204.45,
+                    "p99": 206.49,
+                    "min": 172,
+                    "max": 207,
+                    "num": 4,
+                    "values": [
+                        207,
+                        189,
+                        172,
+                        190
+                    ]
+                },
+                "knowledge_base": {
+                    "p50": 153.5,
+                    "p90": 181.7,
+                    "p95": 198.84999999999997,
+                    "p99": 212.57,
+                    "min": 90,
+                    "max": 216,
+                    "num": 8,
+                    "values": [
+                        90,
+                        216,
+                        121,
+                        153,
+                        154,
+                        167,
+                        148,
+                        159
+                    ]
+                }
+            },
+            "metadata": {
+                "survey_id": "144"
+            },
+            "call_cost": {
+                "product_costs": [
+                    {
+                        "product": "cartesia_tts",
+                        "unit_price": 0.1166667,
+                        "cost": 2.6833333
+                    },
+                    {
+                        "product": "gpt_4_1",
+                        "unit_price": 0.075,
+                        "cost": 1.725
+                    },
+                    {
+                        "product": "llm_token_surcharge",
+                        "cost": 3.3000000000000003
+                    },
+                    {
+                        "product": "knowledge_base_usage",
+                        "unit_price": 0.0083333,
+                        "cost": 0.1916667
+                    }
+                ],
+                "total_duration_seconds": 23,
+                "total_duration_unit_price": 0.3434783,
+                "combined_cost": 7.9
+            },
+            "call_analysis": {
+                "call_summary": "The user, John Mitchell, answered the call but requested to be called back tomorrow as he was busy at the moment. The agent agreed to follow up later.",
+                "in_voicemail": false,
+                "user_sentiment": "Neutral",
+                "call_successful": true,
+                "custom_analysis_data": {
+                    "business_description": "",
+                    "next_steps": "Agent will call John Mitchell back tomorrow as requested.",
+                    "target_market": "",
+                    "project_type": "",
+                    "specific_challenge": "",
+                    "previous_experience": "",
+                    "high_value_score": 0
+                }
+            },
+            "data_storage_setting": "everything_except_pii",
+            "opt_in_signed_url": false,
+            "llm_token_usage": {
+                "values": [
+                    9224,
+                    10451,
+                    10182,
+                    10187,
+                    10202,
+                    10207,
+                    10210,
+                    10213
+                ],
+                "average": 10109.5,
+                "num_requests": 8
+            },
+            "from_number": "+16042108838",
+            "to_number": "+17786974255",
+            "direction": "outbound",
+            "telephony_identifier": {
+                "twilio_call_sid": "CA8bd0376aa55a67b940a2412a7f072353"
+            }
+        }
+    }
+}

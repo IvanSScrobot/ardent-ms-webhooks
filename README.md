@@ -34,6 +34,7 @@ Optional configuration (via ConfigMap):
 - `ONLY_WHITELISTED_SOURCES`: Enable IP allowlist checking (default: false)
 - `RETELL_ALLOWED_IPS`: Comma-separated list of allowed Retell IP addresses
 - `LOG_FULL_WEBHOOK_REQUESTS`: Set to `"true"` to log the full incoming webhook (method, path, query, headers, body) before validation (default: `"true"` when unset, set to `"false"` to disable)
+- `USE_WEBHOOK_DATA_EXTRACTION`: Set to `"true"` to remove the large `transcript_object` array before forwarding (default: `"true"` when unset, set to `"false"` to forward the complete original body without modifications)
 
 ## Webhook Endpoint
 
@@ -50,9 +51,10 @@ Where `<webhook_hash>` is read from the `WEBHOOK_HASH` environment variable.
 2. **Log**: Log request details (IP, headers, body size). If `LOG_FULL_WEBHOOK_REQUESTS=true`, also log the full request payload before any validation
 3. **IP Check**: If `ONLY_WHITELISTED_SOURCES=true`, verify client IP is in allowlist
 4. **Validate**: Verify `x-retell-signature` header using HMAC-SHA256
-5. **Forward**: If valid, forward request to target endpoint
-6. **Respond**: Return 204 No Content to acknowledge receipt
-7. **Log**: Log all outcomes (success, validation failure, forward failure, IP rejection)
+5. **Process**: If `USE_WEBHOOK_DATA_EXTRACTION=true` (default), remove the large `transcript_object` array to reduce payload size
+6. **Forward**: If valid, forward processed or original request to target endpoint
+7. **Respond**: Return 204 No Content to acknowledge receipt
+8. **Log**: Log all outcomes (success, validation failure, forward failure, IP rejection)
 
 ## IP Allowlist Configuration
 

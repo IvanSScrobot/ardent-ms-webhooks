@@ -18,3 +18,6 @@ data:
   TARGET_ENDPOINT_TIMEOUT: "600000"
   DISABLE_RETELL_SIGNATURE_VERIFICATION: "False"
   LOG_FULL_WEBHOOK_REQUESTS: "true"
+  # Enable/disable webhook data extraction (removes transcript_object before forwarding)
+  # Set to "true" to remove large transcript_object array, "false" to forward complete body
+  USE_WEBHOOK_DATA_EXTRACTION: "true"
